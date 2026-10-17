@@ -39,6 +39,59 @@ DEFAULT_STATE: Dict[str, Any] = {
     "task_summary": "",
 }
 
+# Default models for known harnesses when 'none' or default is selected
+DEFAULT_HARNESS_MODELS: Dict[str, str] = {
+    "opencode": "deepseek-coder:6.7b",
+    "antigravity pro": "gemini-1.5-pro",
+    "antigravity": "gemini-1.5-pro",
+    "agy": "gemini-1.5-pro",
+    "claude code": "claude-3-7-sonnet",
+    "claude": "claude-3-7-sonnet",
+    "aider": "ollama/qwen2.5-coder:7b",
+}
+
+
+def resolve_model_name(
+    user_input: Optional[str],
+    preset_default: str = "",
+    previous_value: Optional[str] = None,
+    harness_name: Optional[str] = None,
+) -> str:
+    """
+    Resolve model name. When user inputs 'none', 'None', '', 'null', or 'default',
+    it falls back to:
+    1. Previous value from existing config (if valid and not 'none')
+    2. Preset default model (if valid and not 'none')
+    3. Known default model for that harness
+    """
+    raw = (str(user_input) if user_input is not None else "").strip()
+    is_none = not raw or raw.lower() in ("none", "null", "default", "nil", "unset")
+
+    if not is_none:
+        return raw
+
+    # 1. Fallback to previously used model
+    if previous_value:
+        prev_clean = str(previous_value).strip()
+        if prev_clean and prev_clean.lower() not in ("none", "null", "default", "nil", "unset"):
+            return prev_clean
+
+    # 2. Fallback to preset default
+    if preset_default:
+        preset_clean = str(preset_default).strip()
+        if preset_clean and preset_clean.lower() not in ("none", "null", "default", "nil", "unset"):
+            return preset_clean
+
+    # 3. Fallback to harness default based on name
+    if harness_name:
+        h_lower = harness_name.lower()
+        for k, v in DEFAULT_HARNESS_MODELS.items():
+            if k in h_lower:
+                return v
+
+    return "default"
+
+
 # ANSI Colors for terminal output
 class Colors:
     CYAN = "\033[96m"
@@ -238,7 +291,8 @@ def execute_harness(
     """
     name = harness_config.get("name", role.capitalize())
     cmd_template = harness_config.get("command", "")
-    model = harness_config.get("model", "")
+    raw_model = harness_config.get("model", "")
+    model = resolve_model_name(raw_model, harness_name=name)
     timeout = harness_config.get("timeout_seconds", 1200)
 
     if not cmd_template:
@@ -682,16 +736,33 @@ def interactive_setup() -> None:
 
     print(f"\nSelected: {Colors.GREEN}{selected_preset.get('name')}{Colors.RESET}\n")
 
+    # Check if a config already exists to preserve previous choices
+    prev_config: Dict[str, Any] = {}
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                prev_config = json.load(f)
+        except Exception:
+            pass
+
+    prev_worker_model = prev_config.get("worker", {}).get("model", "")
+    prev_lead_model = prev_config.get("lead", {}).get("model", "")
+
     # Worker details
     worker_data = selected_preset.get("worker", {})
+    w_name = worker_data.get("name", "Worker")
     if preset_choice == "4":
         w_name = input("Worker name (e.g., OpenCode, Aider, custom): ").strip() or "Worker"
         w_cmd = input("Worker command template (placeholders: {prompt}, {model}, {dir}): ").strip()
-        w_model = input("Worker model identifier (optional): ").strip()
+        w_default = resolve_model_name("", previous_value=prev_worker_model, harness_name=w_name)
+        w_model_input = input(f"Worker model [{w_default}] (type 'none' for default): ").strip()
+        w_model = resolve_model_name(w_model_input, preset_default=w_default, previous_value=prev_worker_model, harness_name=w_name)
         worker_config = {"name": w_name, "command": w_cmd, "model": w_model, "timeout_seconds": 600}
     else:
-        w_model_default = worker_data.get("model", "")
-        custom_w_model = input(f"Worker model [{w_model_default}]: ").strip() or w_model_default
+        preset_w_model = worker_data.get("model", "")
+        w_default = resolve_model_name("", preset_default=preset_w_model, previous_value=prev_worker_model, harness_name=w_name)
+        w_model_input = input(f"Worker model [{w_default}] (type 'none' for default): ").strip()
+        custom_w_model = resolve_model_name(w_model_input, preset_default=w_default, previous_value=prev_worker_model, harness_name=w_name)
         worker_config = {
             "name": worker_data.get("name", "Worker"),
             "command": worker_data.get("command", ""),
@@ -701,14 +772,19 @@ def interactive_setup() -> None:
 
     # Lead details
     lead_data = selected_preset.get("lead", {})
+    l_name = lead_data.get("name", "Lead")
     if preset_choice == "4":
         l_name = input("Lead name (e.g., Antigravity Pro, Claude Code): ").strip() or "Lead"
         l_cmd = input("Lead command template (placeholders: {prompt}, {model}, {dir}): ").strip()
-        l_model = input("Lead model identifier (optional): ").strip()
+        l_default = resolve_model_name("", previous_value=prev_lead_model, harness_name=l_name)
+        l_model_input = input(f"Lead model [{l_default}] (type 'none' for default): ").strip()
+        l_model = resolve_model_name(l_model_input, preset_default=l_default, previous_value=prev_lead_model, harness_name=l_name)
         lead_config = {"name": l_name, "command": l_cmd, "model": l_model, "timeout_seconds": 900}
     else:
-        l_model_default = lead_data.get("model", "")
-        custom_l_model = input(f"Lead model [{l_model_default}]: ").strip() or l_model_default
+        preset_l_model = lead_data.get("model", "")
+        l_default = resolve_model_name("", preset_default=preset_l_model, previous_value=prev_lead_model, harness_name=l_name)
+        l_model_input = input(f"Lead model [{l_default}] (type 'none' for default): ").strip()
+        custom_l_model = resolve_model_name(l_model_input, preset_default=l_default, previous_value=prev_lead_model, harness_name=l_name)
         lead_config = {
             "name": lead_data.get("name", "Lead"),
             "command": lead_data.get("command", ""),
