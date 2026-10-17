@@ -42,9 +42,9 @@ DEFAULT_STATE: Dict[str, Any] = {
 # Default models for known harnesses when 'none' or default is selected
 DEFAULT_HARNESS_MODELS: Dict[str, str] = {
     "opencode": "deepseek-coder:6.7b",
-    "antigravity pro": "gemini-1.5-pro",
-    "antigravity": "gemini-1.5-pro",
-    "agy": "gemini-1.5-pro",
+    "antigravity pro": "gemini-3.8-flash",
+    "antigravity": "gemini-3.8-flash",
+    "agy": "gemini-3.8-flash",
     "claude code": "claude-3-7-sonnet",
     "claude": "claude-3-7-sonnet",
     "aider": "ollama/qwen2.5-coder:7b",
