@@ -1,0 +1,84 @@
+{
+  "$comment": "harness-loop configuration file. Copy to config.json or run `python runner.py --setup`",
+  "active_preset": "1",
+  "worker": {
+    "name": "OpenCode",
+    "command": "opencode run --model {model} --prompt {prompt}",
+    "model": "deepseek-coder:6.7b",
+    "timeout_seconds": 600
+  },
+  "lead": {
+    "name": "Antigravity Pro",
+    "command": "agy run --model {model} {prompt}",
+    "model": "gemini-1.5-pro",
+    "timeout_seconds": 900
+  },
+  "runner": {
+    "test_command": "pytest",
+    "max_free_retries": 3,
+    "error_tail_lines": 40,
+    "project_dir": "."
+  },
+  "presets": {
+    "1": {
+      "id": "1",
+      "name": "OpenCode (Worker) + Antigravity Pro (Lead)",
+      "description": "Local/free OpenCode worker for rapid test-fix loops paired with Antigravity Pro for architecture and code review",
+      "worker": {
+        "name": "OpenCode",
+        "command": "opencode run --model {model} --prompt {prompt}",
+        "model": "deepseek-coder:6.7b"
+      },
+      "lead": {
+        "name": "Antigravity Pro",
+        "command": "agy run --model {model} {prompt}",
+        "model": "gemini-1.5-pro"
+      }
+    },
+    "2": {
+      "id": "2",
+      "name": "Aider (Worker) + Claude Code (Lead)",
+      "description": "Aider with local or low-cost model paired with Anthropic Claude Code CLI lead architect",
+      "worker": {
+        "name": "Aider",
+        "command": "aider --model {model} --message {prompt} --no-auto-commits",
+        "model": "ollama/qwen2.5-coder:7b"
+      },
+      "lead": {
+        "name": "Claude Code",
+        "command": "claude -p {prompt}",
+        "model": "claude-3-7-sonnet"
+      }
+    },
+    "3": {
+      "id": "3",
+      "name": "OpenCode (Worker) + Claude Code (Lead)",
+      "description": "OpenCode local worker paired with Claude Code CLI lead architect",
+      "worker": {
+        "name": "OpenCode",
+        "command": "opencode run --model {model} --prompt {prompt}",
+        "model": "deepseek-coder:6.7b"
+      },
+      "lead": {
+        "name": "Claude Code",
+        "command": "claude -p {prompt}",
+        "model": "claude-3-7-sonnet"
+      }
+    },
+    "4": {
+      "id": "4",
+      "name": "Custom Harness Templates",
+      "description": "User-defined custom CLI commands, models, and test harnesses",
+      "worker": {
+        "name": "Custom Worker",
+        "command": "my-worker-cli --dir {dir} --prompt {prompt}",
+        "model": "default"
+      },
+      "lead": {
+        "name": "Custom Lead",
+        "command": "my-lead-cli --dir {dir} --prompt {prompt}",
+        "model": "default"
+      }
+    }
+  }
+}

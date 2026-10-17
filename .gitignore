@@ -1,0 +1,78 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Deep Learning checkpoints & datasets
+checkpoints/*.pt
+checkpoints/*.pth
+checkpoints/*.ckpt
+results/
+data/
+datasets/
+wandb/
+*.npy
+*.npz
+
+# IDE & Editor caches
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Agent Loop Runtime files (managed in .agent_loop/.gitignore)
+.agent_loop/config.json
+.agent_loop/state.json
+.agent_loop/task.md
+.agent_loop/feedback.log
+.agent_loop/.current_prompt.txt
+.agent_loop/*.tmp

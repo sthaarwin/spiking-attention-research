@@ -1,0 +1,16 @@
+# Ignore runtime execution state, tasks, and test logs
+state.json
+task.md
+feedback.log
+config.json
+.current_prompt.txt
+
+# Temporary files created by atomic updates
+*.tmp
+*.temp
+
+
+# Never ignore gitkeep, example configuration, or rule contract
+!.gitkeep
+!config.example.json
+!rules.md

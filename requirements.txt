@@ -1,0 +1,13 @@
+# Core PyTorch and Neuromorphic Frameworks
+torch>=2.0.0
+torchvision>=0.15.0
+spikingjelly>=0.0.0.0.14
+
+# Data, Configs, and Utilities
+numpy>=1.24.0
+pyyaml>=6.0
+matplotlib>=3.7.0
+timm>=0.9.0
+
+# Testing & Profiling
+pytest>=7.0.0
