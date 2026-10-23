@@ -873,6 +873,12 @@ def main() -> None:
         help="Update or initialize the task specification in .agent_loop/task.md.",
     )
     parser.add_argument(
+        "--files",
+        nargs="*",
+        default=None,
+        help="Optional explicit target files for the task.",
+    )
+    parser.add_argument(
         "--test-only",
         action="store_true",
         help="Directly run the project test command and update feedback.log without invoking harnesses.",
@@ -899,6 +905,7 @@ def main() -> None:
         return
 
     if args.task:
+        import re
         ensure_workspace_initialized()
         task_content = (
             f"# Task Specification\n\n"
@@ -909,6 +916,29 @@ def main() -> None:
         )
         atomic_write_text(TASK_FILE, task_content)
         log_success(f"Updated task specification in {TASK_FILE}")
+
+        # Extract target files from --files or auto-detect from task text
+        target_files = args.files
+        if not target_files:
+            detected = re.findall(r'[\w\-./]+\.(?:py|yaml|yml|json|md)', args.task)
+            target_files = [f for f in detected if not f.startswith(".agent_loop")]
+
+        update_data: Dict[str, Any] = {
+            "active_turn": "worker",
+            "status": "in_progress",
+            "iteration": 0,
+            "escalate_to_lead": False,
+            "last_test_passed": False,
+            "task_summary": args.task[:120],
+        }
+        if target_files:
+            update_data["target_files"] = target_files
+
+        update_state(update_data)
+        if FEEDBACK_FILE.exists():
+            atomic_write_text(FEEDBACK_FILE, "")
+        log_success("Set active_turn to 'worker' and initialized task in state.json.")
+        print_status()
         return
 
     if args.test_only:
