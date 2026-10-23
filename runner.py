@@ -514,10 +514,17 @@ def step_cycle(config: Dict[str, Any]) -> bool:
         # Reload state after Lead update
         post_state = load_state()
         new_turn = post_state.get("active_turn", "lead")
-        if new_turn == "lead" and post_state.get("status") == "planning":
+        new_status = post_state.get("status", status)
+
+        if new_turn == "lead" and new_status == "planning":
             log_warn("Lead did not switch active_turn to 'worker'. Automatic switch enabled if target_files present.")
             if post_state.get("target_files"):
                 update_state({"active_turn": "worker", "status": "in_progress"})
+        elif new_turn == "lead" and new_status == "ready_for_review":
+            log_header("HARNESS LOOP COMPLETE", Colors.GREEN)
+            log_success("Lead reviewed and approved changes. Marking loop 'done'!")
+            update_state({"active_turn": "done", "status": "done"})
+            return False
         return True
 
     # Worker Turn
@@ -530,7 +537,26 @@ def step_cycle(config: Dict[str, Any]) -> bool:
         prompt = construct_worker_prompt(state)
         exit_code = execute_harness("worker", worker_cfg, prompt, session_id, ROOT_DIR)
         if exit_code != 0:
-            log_warn(f"Worker harness exited with code {exit_code}")
+            log_error(f"Worker harness exited with error code {exit_code}.")
+            new_iter = iteration + 1
+            if new_iter >= max_free_retries:
+                log_header("RETRY BUDGET EXCEEDED — ESCALATING TO LEAD", Colors.RED)
+                update_state({
+                    "iteration": new_iter,
+                    "last_test_passed": False,
+                    "escalate_to_lead": True,
+                    "active_turn": "lead",
+                    "status": "blocked",
+                })
+            else:
+                update_state({
+                    "iteration": new_iter,
+                    "last_test_passed": False,
+                    "escalate_to_lead": False,
+                    "active_turn": "worker",
+                    "status": "in_progress",
+                })
+            return True
 
         # Deterministic Runner Test Execution
         test_passed, _ = run_deterministic_tests(test_command, ROOT_DIR, tail_lines)
