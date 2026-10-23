@@ -69,10 +69,4 @@ wandb/
 .DS_Store
 Thumbs.db
 
-# Agent Loop Runtime files (managed in .agent_loop/.gitignore)
-.agent_loop/config.json
-.agent_loop/state.json
-.agent_loop/task.md
-.agent_loop/feedback.log
-.agent_loop/.current_prompt.txt
-.agent_loop/*.tmp
+

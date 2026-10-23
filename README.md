@@ -40,7 +40,6 @@ spiking-attention-research/
 │   └── reproducibility.py       # Deterministic seeds and environment logging
 ├── experiments/                 # Factorial ablations and benchmark runners
 ├── notebooks/                   # Kaggle / Colab GPU execution notebooks
-├── runner.py                    # Autonomous multi-agent harness loop engine
 ├── ROADMAP.md                   # Complete 12-week research plan and milestone targets
 └── README.md
 ```
@@ -49,20 +48,19 @@ spiking-attention-research/
 
 ## 🚀 Quickstart
 
-### 1. Harness Loop Setup
-This repository is configured with the `harness-loop` autonomous agent engineering engine:
-
+### 1. Installation
 ```bash
-# Setup multi-agent configuration
-python runner.py --setup
+# Create and activate environment
+python3 -m venv .venv
+source .venv/bin/activate
 
-# Run autonomous loop
-python runner.py
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### 2. Manual Testing
+### 2. Run Test Suite
 ```bash
-python3 -m unittest discover tests
+pytest tests/
 ```
 
 ---
