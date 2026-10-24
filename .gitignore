@@ -71,5 +71,7 @@ Thumbs.db
 
 .agent_loop/
 kag-push/
+kaggle_outputs/
+*.log
 
 
