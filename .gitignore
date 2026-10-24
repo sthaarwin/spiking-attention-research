@@ -50,9 +50,9 @@ coverage.xml
 cover/
 
 # Deep Learning checkpoints & datasets
-checkpoints/*.pt
-checkpoints/*.pth
-checkpoints/*.ckpt
+checkpoints/*
+!checkpoints/.gitkeep
+
 results/
 data/
 datasets/
@@ -68,5 +68,7 @@ wandb/
 *~
 .DS_Store
 Thumbs.db
+
+.agent_loop/
 
 

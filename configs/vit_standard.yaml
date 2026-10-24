@@ -1,0 +1,25 @@
+# Conventional Vision Transformer (ANN ViT) Baseline Configuration
+model:
+  attn_type: "standard_vit"
+  embed_dim: 64
+  depth: 2
+  num_heads: 4
+  img_size: 32
+  patch_size: 4
+  mlp_ratio: 4.0
+  proj_drop: 0.0
+
+dataset:
+  name: "cifar10"
+  data_dir: "./data"
+  batch_size: 64
+  num_workers: 2
+
+training:
+  epochs: 20
+  lr: 0.001
+  weight_decay: 0.01
+  optimizer: "adamw"
+  scheduler: "cosine"
+  seed: 42
+  deterministic: true

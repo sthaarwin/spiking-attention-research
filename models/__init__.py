@@ -17,10 +17,19 @@ except ImportError:
     SpikingSelfAttention = None
 
 try:
-    from .backbones import SpikingVisionTransformer, SpikingTransformerBlock
+    from .backbones import (
+        SpikingVisionTransformer,
+        SpikingTransformerBlock,
+        StandardVisionTransformer,
+        StandardTransformerBlock,
+        create_attention_layer,
+    )
 except ImportError:
     SpikingVisionTransformer = None
     SpikingTransformerBlock = None
+    StandardVisionTransformer = None
+    StandardTransformerBlock = None
+    create_attention_layer = None
 
 __all__ = [
     "AdaptiveThresholdLIFNode",
@@ -31,4 +40,7 @@ __all__ = [
     "SpikingSelfAttention",
     "SpikingVisionTransformer",
     "SpikingTransformerBlock",
+    "StandardVisionTransformer",
+    "StandardTransformerBlock",
+    "create_attention_layer",
 ]

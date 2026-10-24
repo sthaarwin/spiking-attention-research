@@ -1,0 +1,31 @@
+# Neuromorphic Event-Based Vision Experiment Configuration
+model:
+  attn_type: "proposed"
+  embed_dim: 64
+  depth: 2
+  num_heads: 4
+  T: 8
+  in_channels: 2
+  img_size: 32
+  patch_size: 4
+  num_classes: 10
+  tau: 2.0
+  adaptive: true
+  initial_alpha: 1.0
+  initial_beta: 1.0
+  mlp_ratio: 4.0
+
+dataset:
+  name: "event"
+  data_dir: "./data"
+  batch_size: 32
+  num_workers: 2
+
+training:
+  epochs: 25
+  lr: 0.001
+  weight_decay: 0.01
+  optimizer: "adamw"
+  scheduler: "cosine"
+  seed: 42
+  deterministic: true

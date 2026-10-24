@@ -1,0 +1,27 @@
+# CIFAR-10 Spikformer Spiking Self-Attention (SSA) Baseline Configuration
+model:
+  attn_type: "ssa"
+  embed_dim: 64
+  depth: 2
+  num_heads: 4
+  T: 4
+  img_size: 32
+  patch_size: 4
+  tau: 2.0
+  adaptive: false
+  mlp_ratio: 4.0
+
+dataset:
+  name: "cifar10"
+  data_dir: "./data"
+  batch_size: 64
+  num_workers: 2
+
+training:
+  epochs: 20
+  lr: 0.001
+  weight_decay: 0.01
+  optimizer: "adamw"
+  scheduler: "cosine"
+  seed: 42
+  deterministic: true

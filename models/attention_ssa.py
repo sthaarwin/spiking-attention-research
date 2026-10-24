@@ -30,6 +30,9 @@ class SpikingSelfAttention(nn.Module):
         qkv_bias: bool = False,
         proj_drop: float = 0.0,
         tau: float = 2.0,
+        adaptive: bool = False,
+        initial_alpha: float = 1.0,
+        initial_beta: float = 1.0,
     ):
         super().__init__()
         assert dim % num_heads == 0, f"dim {dim} must be divisible by num_heads {num_heads}"
@@ -38,6 +41,7 @@ class SpikingSelfAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.scale = 0.125  # Standard Spikformer scaling constant
+        self.adaptive = adaptive
 
         # Linear projections
         self.q_proj = nn.Linear(dim, dim, bias=qkv_bias)
@@ -48,7 +52,13 @@ class SpikingSelfAttention(nn.Module):
         self.q_lif = AdaptiveThresholdLIFNode(tau=tau, adaptive=False, initial_beta=1.0)
         self.k_lif = AdaptiveThresholdLIFNode(tau=tau, adaptive=False, initial_beta=1.0)
         self.v_lif = AdaptiveThresholdLIFNode(tau=tau, adaptive=False, initial_beta=1.0)
-        self.attn_lif = AdaptiveThresholdLIFNode(tau=tau, adaptive=False, initial_beta=1.0)
+        self.attn_lif = AdaptiveThresholdLIFNode(
+            tau=tau,
+            adaptive=adaptive,
+            initial_alpha=initial_alpha,
+            initial_beta=initial_beta,
+            reduction_dims=(-2,),
+        )
 
         # Output projection
         self.out_proj = nn.Linear(dim, dim)
@@ -94,3 +104,30 @@ class SpikingSelfAttention(nn.Module):
         out = self.proj_drop(out)
 
         return out.reshape(T, B, N, D)
+
+    def get_firing_rates(self) -> Dict[str, float]:
+        """Return firing rates for intermediate and output spike layers."""
+        return {
+            "q_firing_rate": self.q_lif.get_firing_rate(),
+            "k_firing_rate": self.k_lif.get_firing_rate(),
+            "v_firing_rate": self.v_lif.get_firing_rate(),
+            "attention_firing_rate": self.attn_lif.get_firing_rate(),
+        }
+
+    def count_operations(self, T: int, B: int, N: int) -> Dict[str, int]:
+        """
+        Operation breakdown:
+        Spikformer SSA has quadratic token interactions:
+        S_Q @ S_K^T: N * N * d_h additions (since inputs are spikes)
+        Attn @ S_V: N * N * d_h multiplications (since Attn is scaled float)
+        """
+        projection_macs = T * B * N * (4 * self.dim * self.dim)
+        attention_acs = T * B * self.num_heads * (N * N * self.head_dim)
+        attention_macs = T * B * self.num_heads * (N * N * self.head_dim)
+
+        return {
+            "projection_macs": projection_macs,
+            "attention_macs": attention_macs,
+            "attention_acs": attention_acs,
+        }
+

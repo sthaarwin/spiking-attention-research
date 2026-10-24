@@ -3,7 +3,7 @@ Conventional Scaled Dot-Product Attention (Floating-Point ViT Reference Baseline
 Implements: Attention(Q, K, V) = softmax(Q K^T / sqrt(d_k)) V.
 """
 
-from typing import Optional
+from typing import Dict, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -72,3 +72,20 @@ class VanillaSoftmaxAttention(nn.Module):
         out = self.proj_drop(out)
 
         return out.reshape(T, B, N, D)
+
+    def count_operations(self, T: int, B: int, N: int) -> Dict[str, int]:
+        """
+        Operation breakdown for conventional softmax attention:
+        Two dense N x N matrix multiplications per head:
+        Q @ K^T: N * N * d_h MACs
+        Attn @ V: N * N * d_h MACs
+        """
+        projection_macs = T * B * N * (4 * self.dim * self.dim)
+        attention_macs = T * B * self.num_heads * (2 * N * N * self.head_dim)
+
+        return {
+            "projection_macs": projection_macs,
+            "attention_macs": attention_macs,
+            "attention_acs": 0,
+        }
+

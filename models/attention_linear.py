@@ -46,6 +46,10 @@ class AssociativeLinearAttention(nn.Module):
         self.out_proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
+    def reset(self) -> None:
+        """Stateless compatibility method."""
+        pass
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass:
@@ -98,3 +102,19 @@ class AssociativeLinearAttention(nn.Module):
             "attention_macs": total_macs,
             "complexity_order": f"O(T * B * H * N * d_h^2) = O({T * B * self.dim * self.head_dim} * N)",
         }
+
+    def count_operations(self, T: int, B: int, N: int) -> dict:
+        """
+        Operation breakdown for associative linear attention:
+        Linear attention reorders (Q K^T) V to Q (K^T V):
+        K^T @ V: N * d_h * d_h MACs
+        Q @ (KV): N * d_h * d_h MACs
+        """
+        projection_macs = T * B * N * (4 * self.dim * self.dim)
+        attention_macs = T * B * self.num_heads * (2 * N * (self.head_dim ** 2))
+        return {
+            "projection_macs": projection_macs,
+            "attention_macs": attention_macs,
+            "attention_acs": 0,
+        }
+
