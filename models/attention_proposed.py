@@ -37,10 +37,10 @@ class ThresholdGatedSpikingAttention(nn.Module):
         qkv_bias: bool = False,
         proj_drop: float = 0.0,
         initial_alpha: float = 1.0,
-        initial_beta: float = 1.0,
+        initial_beta: float = 0.5,
         tau: float = 2.0,
         adaptive: bool = True,
-        scale_by_length: bool = True,
+        scale_by_length: bool = False,
     ):
         super().__init__()
         assert dim % num_heads == 0, f"dim {dim} must be divisible by num_heads {num_heads}"
@@ -118,9 +118,13 @@ class ThresholdGatedSpikingAttention(nn.Module):
         # U:     [T, B, H, N, d_h]
         u = torch.matmul(s_q, kv)
 
-        # Sequence length scaling
+        # Head-dimension scaling (default): 1/sqrt(d_h)
+        # On integer hardware, sqrt(16)=4 is a single bitshift >> 2
+        # Fallback: scale_by_length uses 1/sqrt(N) instead
         if self.scale_by_length and N > 0:
             u = u / (N ** 0.5)
+        else:
+            u = u / (self.head_dim ** 0.5)
 
         # Step 3: Adaptive Threshold Gating (replaces Softmax)
         # Dynamically computes theta_d = alpha * Mean(U) + beta

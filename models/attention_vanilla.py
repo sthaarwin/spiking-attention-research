@@ -25,6 +25,7 @@ class VanillaSoftmaxAttention(nn.Module):
         qkv_bias: bool = False,
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
+        **kwargs,
     ):
         super().__init__()
         assert dim % num_heads == 0, f"dim {dim} must be divisible by num_heads {num_heads}"

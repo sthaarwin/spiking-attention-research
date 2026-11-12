@@ -57,6 +57,7 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
             "patch_size": 4,
             "tau": 2.0,
             "adaptive": True,
+            "initial_beta": 0.5,
             "mlp_ratio": 4.0,
         },
         "dataset": {
@@ -65,9 +66,11 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
             "num_workers": 2,
         },
         "training": {
-            "epochs": 20,
+            "epochs": 50,
             "lr": 1e-3,
             "weight_decay": 1e-2,
+            "warmup_epochs": 5,
+            "label_smoothing": 0.1,
             "seed": 42,
         },
     }
@@ -212,14 +215,33 @@ def main():
     print(f"Initialized {config['model']['attn_type']} model with {param_info['trainable_parameters']:,} trainable parameters.")
     print(f"Training on device: {device}")
 
-    criterion = nn.CrossEntropyLoss()
+    label_smoothing = config["training"].get("label_smoothing", 0.0)
+    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=config["training"]["lr"],
         weight_decay=config["training"]["weight_decay"],
     )
     epochs = config["training"]["epochs"]
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    warmup_epochs = config["training"].get("warmup_epochs", 0)
+
+    # Build scheduler: optional linear warmup + cosine decay with min LR floor
+    if warmup_epochs > 0:
+        warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
+        )
+        cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=epochs - warmup_epochs, eta_min=1e-5
+        )
+        scheduler = torch.optim.lr_scheduler.SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, cosine_scheduler],
+            milestones=[warmup_epochs],
+        )
+    else:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=epochs, eta_min=1e-5
+        )
 
     tracker = FiringRateTracker(model)
 

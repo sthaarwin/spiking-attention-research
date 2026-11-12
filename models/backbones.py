@@ -29,16 +29,19 @@ def create_attention_layer(
             dim=dim, num_heads=num_heads, tau=tau, adaptive=adaptive, **kwargs
         )
     elif attn_type in ("ssa", "spikformer"):
+        ssa_kwargs = {k: v for k, v in kwargs.items() if k in ("qkv_bias", "proj_drop", "initial_alpha", "initial_beta")}
         return SpikingSelfAttention(
-            dim=dim, num_heads=num_heads, tau=tau, adaptive=adaptive, **kwargs
+            dim=dim, num_heads=num_heads, tau=tau, adaptive=adaptive, **ssa_kwargs
         )
     elif attn_type in ("linear", "associative"):
+        linear_kwargs = {k: v for k, v in kwargs.items() if k in ("qkv_bias", "proj_drop", "scale_by_length")}
         return AssociativeLinearAttention(
-            dim=dim, num_heads=num_heads, **kwargs
+            dim=dim, num_heads=num_heads, **linear_kwargs
         )
     elif attn_type in ("vanilla", "softmax"):
+        vanilla_kwargs = {k: v for k, v in kwargs.items() if k in ("qkv_bias", "proj_drop")}
         return VanillaSoftmaxAttention(
-            dim=dim, num_heads=num_heads, **kwargs
+            dim=dim, num_heads=num_heads, **vanilla_kwargs
         )
     else:
         raise ValueError(
@@ -47,7 +50,12 @@ def create_attention_layer(
 
 
 class SpikingTransformerBlock(nn.Module):
-    """Pre-normalization-free transformer block with configurable attention and spiking MLP."""
+    """Normalization-free transformer block with configurable attention and spiking MLP.
+    
+    Uses power-of-two residual scaling (default gamma=0.25) instead of LayerNorm/BatchNorm
+    to stabilize variance across deep layers. On integer microcontrollers (e.g. ESP32),
+    gamma=0.25 is a single 2-bit right-shift (>> 2).
+    """
 
     def __init__(
         self,
@@ -57,9 +65,12 @@ class SpikingTransformerBlock(nn.Module):
         tau: float = 2.0,
         attn_type: str = "proposed",
         adaptive: bool = True,
+        residual_scale: float = 0.25,
         **attn_kwargs: Any,
     ):
         super().__init__()
+        self.residual_scale = residual_scale
+
         self.attn = create_attention_layer(
             attn_type=attn_type,
             dim=dim,
@@ -83,8 +94,8 @@ class SpikingTransformerBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: [T, B, N, D]
-        x = x + self.attn(x)
-        x = x + self.lif2(self.fc2(self.lif1(self.fc1(x))))
+        x = x + self.residual_scale * self.attn(x)
+        x = x + self.residual_scale * self.lif2(self.fc2(self.lif1(self.fc1(x))))
         return x
 
 

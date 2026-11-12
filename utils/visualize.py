@@ -25,12 +25,55 @@ plt.rcParams.update({
 })
 
 COLORS = {
-    "standard_vit": "#1f77b4",  # Blue (Dense FP32)
+    "standard_vit": "#1f77b4",        # Royal Navy Blue (Dense FP32)
+    "standard_vit (ann)": "#1f77b4",
     "vanilla": "#1f77b4",
-    "ssa": "#ff7f0e",           # Orange (Spikformer SNN)
-    "linear": "#2ca02c",        # Green (Linear SNN control)
-    "proposed": "#d62728",      # Red (Proposed Multiplication-Free)
+    "ssa": "#ff7f0e",                 # Vibrant Amber Orange (Spikformer SNN)
+    "spikformer_ssa": "#ff7f0e",
+    "spikformer": "#ff7f0e",
+    "linear": "#2ca02c",              # Forest Emerald Green (Linear SNN control)
+    "linear_attention": "#2ca02c",
+    "proposed": "#d62728",            # Crimson Red (Proposed Multiplication-Free TGSA)
+    "proposed_method": "#d62728",
+    "tgsa": "#d62728",
 }
+
+MARKERS = {
+    "standard_vit": "^",
+    "ssa": "s",
+    "linear": "D",
+    "proposed": "o",
+}
+
+
+def get_model_color(name: str) -> str:
+    """Robust color resolver supporting exact keys and substring matching."""
+    nl = name.lower()
+    if nl in COLORS:
+        return COLORS[nl]
+    if "proposed" in nl or "tgsa" in nl:
+        return "#d62728"
+    if "ssa" in nl or "spikformer" in nl:
+        return "#ff7f0e"
+    if "linear" in nl or "associative" in nl:
+        return "#2ca02c"
+    if "vit" in nl or "standard" in nl or "vanilla" in nl:
+        return "#1f77b4"
+    return "#7f7f7f"
+
+
+def get_model_marker(name: str) -> str:
+    """Robust marker resolver for publication plots."""
+    nl = name.lower()
+    if "proposed" in nl or "tgsa" in nl:
+        return "o"
+    if "ssa" in nl or "spikformer" in nl:
+        return "s"
+    if "linear" in nl or "associative" in nl:
+        return "D"
+    if "vit" in nl or "standard" in nl or "vanilla" in nl:
+        return "^"
+    return "v"
 
 
 def plot_accuracy_comparison(
@@ -40,30 +83,54 @@ def plot_accuracy_comparison(
     """
     Figure 3: Training and Validation Accuracy trajectories over epochs
     across all primary model variants (including Standard ViT).
+    Features distinct high-contrast colors, markers, and max-accuracy labels.
     """
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.5))
 
     for model_name, records in histories.items():
         epochs = [r["epoch"] for r in records]
         train_acc = [r["train_acc"] * 100 for r in records]
         val_acc = [r["val_acc"] * 100 for r in records]
-        color = COLORS.get(model_name.lower(), "#7f7f7f")
+        color = get_model_color(model_name)
+        marker = get_model_marker(model_name)
+        markevery = max(1, len(epochs) // 10)
+        clean_name = model_name.replace("_", " ")
 
-        ax1.plot(epochs, train_acc, label=model_name, color=color, linestyle="--")
-        ax2.plot(epochs, val_acc, label=model_name, color=color)
+        ax1.plot(
+            epochs,
+            train_acc,
+            label=clean_name,
+            color=color,
+            linestyle="--",
+            marker=marker,
+            markevery=markevery,
+            markersize=5,
+            alpha=0.85,
+        )
+        ax2.plot(
+            epochs,
+            val_acc,
+            label=f"{clean_name} (best: {max(val_acc):.1f}%)",
+            color=color,
+            linestyle="-",
+            marker=marker,
+            markevery=markevery,
+            markersize=6,
+            linewidth=2.2,
+        )
 
-    ax1.set_title("Training Accuracy")
+    ax1.set_title("Training Accuracy Trajectory")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Accuracy (%)")
-    ax1.grid(True)
-    ax1.legend()
+    ax1.grid(True, linestyle="--", alpha=0.4)
+    ax1.legend(loc="lower right", framealpha=0.9)
 
-    ax2.set_title("Validation Accuracy")
+    ax2.set_title("Validation Accuracy Trajectory")
     ax2.set_xlabel("Epoch")
     ax2.set_ylabel("Accuracy (%)")
-    ax2.grid(True)
-    ax2.legend()
+    ax2.grid(True, linestyle="--", alpha=0.4)
+    ax2.legend(loc="lower right", framealpha=0.9)
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
@@ -113,7 +180,7 @@ def plot_complexity_scaling(
         tokens = [r["tokens"] for r in rows]
         macs = [r["macs"] / 1e6 for r in rows]
         energy = [r["estimated_energy_pj"] / 1e6 for r in rows]
-        color = COLORS.get(method.lower(), "#7f7f7f")
+        color = get_model_color(method)
 
         ax1.plot(tokens, macs, marker="o", label=method.capitalize(), color=color)
         ax2.plot(tokens, energy, marker="s", label=method.capitalize(), color=color)
@@ -181,7 +248,7 @@ def plot_accuracy_energy_pareto(
     for name, metrics in model_results.items():
         acc = metrics["top1_acc"] * 100
         energy_uj = metrics["energy_uj"]
-        color = COLORS.get(name.lower(), "#7f7f7f")
+        color = get_model_color(name)
         marker = "^" if "standard" in name.lower() or "vit" in name.lower() else "o"
         size = 140 if "proposed" in name.lower() else 100
 

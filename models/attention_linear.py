@@ -28,6 +28,7 @@ class AssociativeLinearAttention(nn.Module):
         qkv_bias: bool = False,
         proj_drop: float = 0.0,
         scale_by_length: bool = True,
+        **kwargs,
     ):
         super().__init__()
         assert dim % num_heads == 0, f"dim {dim} must be divisible by num_heads {num_heads}"

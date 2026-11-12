@@ -18,9 +18,11 @@ dataset:
   num_workers: 2
 
 training:
-  epochs: 20
+  epochs: 50
   lr: 0.001
   weight_decay: 0.01
+  warmup_epochs: 5
+  label_smoothing: 0.1
   optimizer: "adamw"
   scheduler: "cosine"
   seed: 42

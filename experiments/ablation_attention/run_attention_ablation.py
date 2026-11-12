@@ -92,47 +92,70 @@ def main():
         best_acc = data["best_val_acc"]
         all_histories[name] = data["history"]
 
-        # Calculate theoretical costs
-        # For N=64 patches (CIFAR-10, 4x4 patches on 32x32 image)
+        # Calculate theoretical costs using proper neuromorphic energy accounting
+        # N=64 patches (CIFAR-10, 4x4 patches on 32x32 image)
         N = (32 // 4) ** 2
         D = 64
         H = 4
         T = 1 if attn_type == "standard_vit" else 4
 
+        # Read measured firing rate from training metrics (for spike-driven accounting)
+        firing_rate = 0.0
+        if "firing_stats" in data["history"][-1]:
+            firing_rate = data["history"][-1]["firing_stats"].get("mean_firing_rate", 0.18)
+
         if attn_type == "standard_vit":
-            # Standard ViT: All dense MACs
+            # Standard ViT: All dense MACs (no spikes, T=1)
             from models.backbones import StandardVisionTransformer
             m = StandardVisionTransformer(embed_dim=D, depth=2, num_heads=H)
             ops = m.count_operations(B=1)
             total_macs = ops["total_macs"]
             total_acs = 0
             energy_uj = meter.estimate_energy_pj(sops=0, flops=total_macs) / 1e6
-        elif attn_type == "proposed":
-            # Proposed: Zero MACs in attention interaction
-            from models.backbones import SpikingVisionTransformer
-            m = SpikingVisionTransformer(embed_dim=D, depth=2, num_heads=H, T=T, attn_type="proposed")
-            # Projections + MLP MACs
-            proj_macs = T * N * (4 * D * D + 2 * D * int(D * 4.0)) * 2
-            # Attention ACs: 2 * N * d_h^2 per head
-            attn_acs = T * H * (2 * N * ((D // H) ** 2)) * 2
-            total_macs = proj_macs
-            total_acs = attn_acs
-            energy_uj = meter.estimate_energy_pj(sops=total_acs, flops=total_macs) / 1e6
-        elif attn_type == "ssa":
-            # Spikformer SSA: Quadratic attention
-            proj_macs = T * N * (4 * D * D + 2 * D * int(D * 4.0)) * 2
-            attn_macs = T * H * (N * N * (D // H)) * 2
-            attn_acs = T * H * (N * N * (D // H)) * 2
-            total_macs = proj_macs + attn_macs
-            total_acs = attn_acs
-            energy_uj = meter.estimate_energy_pj(sops=total_acs, flops=total_macs) / 1e6
         else:
-            # Linear SNN control
-            proj_macs = T * N * (4 * D * D + 2 * D * int(D * 4.0)) * 2
-            attn_macs = T * H * (2 * N * ((D // H) ** 2)) * 2
-            total_macs = proj_macs + attn_macs
-            total_acs = 0
-            energy_uj = meter.estimate_energy_pj(sops=0, flops=total_macs) / 1e6
+            # ---- Neuromorphic Spike-Driven Energy Accounting ----
+            # Layer 1: Patch embedding (Conv2d on continuous RGB pixels) → dense MACs
+            patch_macs = N * (4 * 4 * 3 * D)  # kernel_size^2 * in_channels * embed_dim
+
+            # Subsequent layers receive binary spikes from LIF neurons.
+            # Weight lookups on active spikes are pure additions (ACs), not MACs.
+            # Active ACs = firing_rate × total_synaptic_connections × T
+
+            # Projection layers per block: Q,K,V projections (3*D*D) + Out projection (D*D) = 4*D*D
+            # MLP per block: fc1 (D * 4D) + fc2 (4D * D) = 2 * D * 4D = 8*D*D
+            # Total per block: 4*D*D + 8*D*D = 12*D*D
+            ops_per_block = N * 12 * D * D
+            total_proj_mlp_ops = T * 2 * ops_per_block  # 2 blocks, T timesteps
+
+            # Active spike-driven ACs for projections + MLP
+            proj_mlp_acs = int(total_proj_mlp_ops * firing_rate)
+
+            # Attention-specific operations
+            if attn_type == "proposed":
+                # Proposed TGSA: Zero MACs in attention interaction
+                # S_K^T @ S_V + S_Q @ KV = 2 * N * d_h^2 ACs per head
+                attn_acs = T * H * (2 * N * ((D // H) ** 2)) * 2  # 2 blocks
+                attn_macs = 0
+            elif attn_type == "ssa":
+                # Spikformer SSA: S_Q @ S_K^T is additive (ACs), but Attn @ S_V
+                # involves the scaled float attention map → partial MACs
+                attn_acs_per_block = T * H * (N * N * (D // H))
+                attn_macs_per_block = T * H * (N * N * (D // H))
+                attn_acs = int(attn_acs_per_block * firing_rate) * 2  # 2 blocks
+                attn_macs = attn_macs_per_block * 2  # 2 blocks (float attn map)
+            else:
+                # Linear SNN control: K^T V + Q(KV) are dense float matmuls (no spiking)
+                attn_macs = T * H * (2 * N * ((D // H) ** 2)) * 2  # 2 blocks
+                attn_acs = 0
+
+            total_macs = patch_macs + attn_macs
+            total_acs = proj_mlp_acs + attn_acs
+
+            # Classifier head: receives time-averaged float features → dense MACs
+            classifier_macs = D * 10  # embed_dim * num_classes
+            total_macs += classifier_macs
+
+            energy_uj = meter.estimate_energy_pj(sops=total_acs, flops=total_macs) / 1e6
 
         summary_rows.append({
             "Model": name,
@@ -140,6 +163,7 @@ def main():
             "Top-1 Acc (%)": round(best_acc * 100, 2),
             "Total MACs": total_macs,
             "Total ACs": total_acs,
+            "Firing Rate": round(firing_rate, 4) if attn_type != "standard_vit" else "N/A",
             "Energy (uJ/sample)": round(energy_uj, 2),
         })
 

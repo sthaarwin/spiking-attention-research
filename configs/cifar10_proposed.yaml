@@ -10,8 +10,8 @@ model:
   tau: 2.0
   adaptive: true
   initial_alpha: 1.0
-  initial_beta: 1.0
-  scale_by_length: true
+  initial_beta: 0.5
+  scale_by_length: false
   mlp_ratio: 4.0
 
 dataset:
@@ -21,9 +21,11 @@ dataset:
   num_workers: 2
 
 training:
-  epochs: 20
+  epochs: 50
   lr: 0.001
   weight_decay: 0.01
+  warmup_epochs: 5
+  label_smoothing: 0.1
   optimizer: "adamw"
   scheduler: "cosine"
   seed: 42
